@@ -1,0 +1,8 @@
+# --- Whitelist deploy: ignore everything, then allow only the web app ---
+# Keeps customer drawing data and the AI harness files out of the repo.
+/*
+
+# Files we DO deploy / track
+!.gitignore
+!index.html
+!README.md
