@@ -7,23 +7,33 @@
 <style>
 /* ===== Theme tokens ===== */
 :root{
-  --bg:#e7f1fd; --surface:#ffffff; --surface-2:#f4f8fe; --border:#dbe6f3;
-  --text:#1a2234; --muted:#6b7794; --primary:#2f6bff; --primary-ink:#ffffff;
-  --primary-soft:#e8f0ff; --accent:#00b894; --warn:#f0a500; --danger:#e5484d;
-  --shadow:0 2px 8px rgba(20,35,70,.06), 0 8px 24px rgba(20,35,70,.06);
+  --bg:#f7faff; --surface:#ffffff; --surface-2:#f1f6fd; --border:#e4e9f2;
+  --text:#1e2a3a; --muted:#6b7794; --primary:#4f93e8; --primary-ink:#ffffff;
+  --primary-soft:#dcebff; --accent:#c9a063; --accent-soft:#f3e7cc;
+  --warn:#e0a23c; --danger:#e5484d;
+  /* brand colours sampled from the reference image */
+  --gold:#d4b380; --gold-deep:#c9a063; --sky:#add1ff;
+  --hero:linear-gradient(135deg,#e8cf9e 0%,#d4b380 32%,#9dc2fb 72%,#add1ff 100%);
+  --shadow:0 2px 8px rgba(30,45,80,.05), 0 10px 30px rgba(30,45,80,.07);
   --radius:16px; --radius-sm:10px;
-  --s1:#8a94a6;--s2:#6c7ae0;--s3:#00b894;--s4:#2f6bff;--s5:#9b59b6;--s6:#e67e22;--s7:#f0a500;--s8:#16a34a;
+  --s1:#8a94a6;--s2:#6c7ae0;--s3:#1aa783;--s4:#4f93e8;--s5:#9b59b6;--s6:#e67e22;--s7:#c9a063;--s8:#16a34a;
 }
 :root[data-theme="dark"]{
-  --bg:#0e1420; --surface:#171f2e; --surface-2:#1e2838; --border:#2a3547;
-  --text:#e7ecf5; --muted:#92a0ba; --primary:#5b8cff; --primary-ink:#0e1420;
-  --primary-soft:#1b2740; --accent:#2dd4a7; --warn:#f0b429; --danger:#ff6b6f;
+  --bg:#0f1720; --surface:#18212e; --surface-2:#1e2a38; --border:#2c3848;
+  --text:#e8edf5; --muted:#93a2ba; --primary:#6ba8f5; --primary-ink:#0f1720;
+  --primary-soft:#1d2b42; --accent:#d9bc86; --accent-soft:#2a2418;
+  --warn:#f0b429; --danger:#ff6b6f;
+  --gold:#d9bc86; --gold-deep:#c9a063; --sky:#7fb0f0;
+  --hero:linear-gradient(135deg,#8a7340 0%,#6f6a4a 35%,#2a4a7a 75%,#1d3a63 100%);
   --shadow:0 2px 8px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0e1420; --surface:#171f2e; --surface-2:#1e2838; --border:#2a3547;
-  --text:#e7ecf5; --muted:#92a0ba; --primary:#5b8cff; --primary-ink:#0e1420;
-  --primary-soft:#1b2740; --accent:#2dd4a7; --warn:#f0b429; --danger:#ff6b6f;
+  --bg:#0f1720; --surface:#18212e; --surface-2:#1e2a38; --border:#2c3848;
+  --text:#e8edf5; --muted:#93a2ba; --primary:#6ba8f5; --primary-ink:#0f1720;
+  --primary-soft:#1d2b42; --accent:#d9bc86; --accent-soft:#2a2418;
+  --warn:#f0b429; --danger:#ff6b6f;
+  --gold:#d9bc86; --gold-deep:#c9a063; --sky:#7fb0f0;
+  --hero:linear-gradient(135deg,#8a7340 0%,#6f6a4a 35%,#2a4a7a 75%,#1d3a63 100%);
   --shadow:0 2px 8px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
 }}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -38,10 +48,12 @@ input,select,textarea{font-family:inherit;font-size:15px}
 
 /* ===== Lock screen ===== */
 #lock{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,#2f6bff 0%,#5b8cff 50%,#9b59b6 100%);padding:20px}
+  background:var(--hero);padding:20px}
 .lock-card{background:var(--surface);border-radius:24px;box-shadow:var(--shadow);
   padding:40px 32px;width:100%;max-width:380px;text-align:center}
-.lock-logo{width:64px;height:64px;border-radius:18px;background:var(--primary-soft);
+.lock-logo{width:64px;height:64px;border-radius:18px;
+  background:linear-gradient(135deg,var(--accent-soft) 0%,var(--primary-soft) 100%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold) 40%,transparent);
   display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:30px}
 .lock-card h1{font-size:20px;margin-bottom:4px}
 .lock-card p{color:var(--muted);font-size:14px;margin-bottom:24px}
@@ -58,10 +70,16 @@ input,select,textarea{font-family:inherit;font-size:15px}
 
 /* ===== App shell ===== */
 #app{max-width:1280px;margin:0 auto;padding:0 16px 90px}
-.topbar{position:sticky;top:0;z-index:40;background:var(--bg);padding:16px 0 10px;
+.topbar{position:sticky;top:0;z-index:40;
+  background:color-mix(in srgb,var(--bg) 78%,transparent);
+  -webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px);
+  border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent);
+  padding:16px 0 10px;margin-bottom:4px;
   display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
-.brand .mk{width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;
+.brand .mk{width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--gold) 0%,var(--sky) 100%);color:#fff;
+  box-shadow:0 2px 6px rgba(30,45,80,.18);
   display:flex;align-items:center;justify-content:center;font-size:18px}
 .topbar .spacer{flex:1}
 .icon-btn{width:40px;height:40px;border-radius:12px;background:var(--surface);border:1px solid var(--border);
@@ -1293,7 +1311,8 @@ function printDoc(j, dt, doc){
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+  import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+           getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAo0ydbqUPr5WTEdTk5ZVMLS4vUyl8qr18",
@@ -1306,7 +1325,18 @@ function printDoc(j, dt, doc){
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const db = getFirestore(app);
+  // Disk cache (IndexedDB): repeat reads are served locally — they do NOT
+  // count against Firestore quota, and the app keeps working offline.
+  // persistentMultipleTabManager = safe when several tabs are open at once.
+  let db;
+  try{
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
+  }catch(e){
+    console.warn("[cloud] persistent cache unavailable, falling back", e);
+    db = getFirestore(app);   // e.g. private-mode / IndexedDB blocked
+  }
   const ref = doc(db, "tracker", "shared");
 
   let ready = false, pending = null, timer = null;
@@ -1319,7 +1349,8 @@ function printDoc(j, dt, doc){
   window.__otteriCloudSave = (shared) => {
     pending = shared;
     if(!ready) return;              // flushes once auth is ready
-    clearTimeout(timer); timer = setTimeout(flush, 500);
+    // Coalesce rapid edits into ONE write (fewer billable writes).
+    clearTimeout(timer); timer = setTimeout(flush, 1500);
   };
 
   signInAnonymously(auth).catch(e => console.error("[cloud] auth failed", e));
