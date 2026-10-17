@@ -406,6 +406,25 @@ let state = {
   jobs: []
 };
 
+// Cloud sync (Firebase Firestore) ----------------------------------------
+// SHARED keys live in the central database (everyone sees the same data).
+// LOCAL keys are per-device UI preferences (kept only in this browser cache).
+const CLOUD_ENABLED = true;
+const SHARED_KEYS = ["pinHash","company","counters","extraBranches","seeded","jobs"];
+const LOCAL_KEYS  = ["theme","view","filter"];
+let cloudReady = false;   // first snapshot (or offline fallback) has arrived
+let appUnlocked = false;  // PIN passed, app visible
+
+function sharedState(){
+  const o = {};
+  SHARED_KEYS.forEach(k => { o[k] = state[k] === undefined ? null : state[k]; });
+  return o;
+}
+function saveLocalCache(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  catch(e){ toast("บันทึกไม่สำเร็จ (พื้นที่เต็ม?)"); }
+}
+
 function load(){
   try{
     const raw = localStorage.getItem(LS_KEY);
@@ -413,8 +432,33 @@ function load(){
   }catch(e){ console.warn("load failed", e); }
 }
 function save(){
-  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-  catch(e){ toast("บันทึกไม่สำเร็จ (พื้นที่เต็ม?)"); }
+  saveLocalCache();
+  if(CLOUD_ENABLED && window.__otteriCloudSave){ window.__otteriCloudSave(sharedState()); }
+}
+
+// Called by the Firebase bridge on every snapshot (null = no cloud doc yet).
+function applyRemote(remote){
+  if(remote){
+    SHARED_KEYS.forEach(k => { if(k in remote && remote[k] !== undefined) state[k] = remote[k]; });
+  }
+  saveLocalCache();
+  if(!cloudReady){
+    runPinGate();
+    // Cloud is empty: push our current (cached/seeded) data up to seed the DB.
+    if(!remote && window.__otteriCloudSave){ window.__otteriCloudSave(sharedState()); }
+  } else if(appUnlocked){
+    render();
+  }
+}
+window.__otteriApplyRemote = applyRemote;
+
+// Decide the PIN screen mode once real (cloud or cached) data is in hand,
+// so a brand-new device cannot set a fresh PIN over the shared team one.
+function runPinGate(){
+  if(cloudReady) return;
+  cloudReady = true;
+  pinMode = state.pinHash ? "enter" : "setNew";
+  setLockUI(); renderPinDots();
 }
 
 // ---- tiny hash for PIN (obfuscation, not crypto) ----
@@ -463,7 +507,7 @@ function setLockUI(){
   if(noPin && pinMode==="enter"){ pinMode="setNew"; }
   const titles={enter:"ใส่รหัส PIN", setNew:"ตั้งรหัส PIN ใหม่", confirmNew:"ยืนยันรหัส PIN"};
   $("#lockTitle").textContent=titles[pinMode];
-  $("#lockHint").textContent = pinMode==="enter" ? "" : "ตั้งรหัส 4 หลักเพื่อป้องกันข้อมูล (เครื่องนี้เท่านั้น)";
+  $("#lockHint").textContent = pinMode==="enter" ? "" : "ตั้งรหัส 4 หลัก (ใช้ร่วมกันทั้งทีม)";
 }
 function pinSubmit(){
   if(pinBuf.length<4){ $("#lockMsg").textContent="กรุณาใส่ครบ 4 หลัก"; return; }
@@ -477,11 +521,13 @@ function pinSubmit(){
   else{ $("#lockMsg").textContent="รหัสไม่ถูกต้อง"; pinBuf=""; renderPinDots(); }
 }
 function unlock(){
+  appUnlocked = true;
   pinBuf=""; $("#lock").classList.add("hidden");
   $("#app").classList.remove("hidden"); $("#fab").classList.remove("hidden");
   render();
 }
 function lock(){
+  appUnlocked = false;
   pinBuf=""; pinMode = state.pinHash ? "enter" : "setNew"; pinFirst="";
   $("#app").classList.add("hidden"); $("#fab").classList.add("hidden");
   $("#lock").classList.remove("hidden"); setLockUI(); renderPinDots();
@@ -1042,7 +1088,17 @@ function importData(){
 // =====================================================================
 function init(){
   load(); applyTheme(); buildPinPad(); renderPinDots();
-  pinMode = state.pinHash ? "enter" : "setNew"; setLockUI();
+  if(CLOUD_ENABLED){
+    // Wait for the first cloud snapshot before deciding the PIN mode.
+    pinMode = "enter";
+    $("#lockTitle").textContent = "กำลังเชื่อมต่อฐานข้อมูล…";
+    $("#lockHint").textContent = "";
+    // Offline fallback: if the cloud is silent, use the local cache so the app never hangs.
+    setTimeout(()=>{ if(!cloudReady){ toast("ออฟไลน์ · ใช้ข้อมูลที่เก็บไว้ในเครื่อง"); runPinGate(); } }, 6000);
+  } else {
+    cloudReady = true;
+    pinMode = state.pinHash ? "enter" : "setNew"; setLockUI();
+  }
   $("#settingsBtn").onclick=openSettings;
   $("#fab").onclick=openAddBranch;
   $("#searchInput").oninput=renderView;
@@ -1229,6 +1285,53 @@ function printDoc(j, dt, doc){
   window.print();
   setTimeout(()=>{ document.title="ระบบติดตามเอกสารงานเขียนแบบ · Otteri"; },800);
 }
+</script>
+
+<!-- ===================================================================== -->
+<!-- Firebase cloud sync bridge (shared data + realtime) -->
+<!-- ===================================================================== -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAo0ydbqUPr5WTEdTk5ZVMLS4vUyl8qr18",
+    authDomain: "otteri-drawing-tracker.firebaseapp.com",
+    projectId: "otteri-drawing-tracker",
+    storageBucket: "otteri-drawing-tracker.firebasestorage.app",
+    messagingSenderId: "448958156204",
+    appId: "1:448958156204:web:2671ad75b6ab0130e33e09"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const ref = doc(db, "tracker", "shared");
+
+  let ready = false, pending = null, timer = null;
+  function flush(){
+    if(!pending) return;
+    const data = pending; pending = null;
+    setDoc(ref, data, { merge:true }).catch(e => console.warn("[cloud] save failed", e));
+  }
+  // Called by the app's save(): queue the shared state, write debounced.
+  window.__otteriCloudSave = (shared) => {
+    pending = shared;
+    if(!ready) return;              // flushes once auth is ready
+    clearTimeout(timer); timer = setTimeout(flush, 500);
+  };
+
+  signInAnonymously(auth).catch(e => console.error("[cloud] auth failed", e));
+  onAuthStateChanged(auth, (user) => {
+    if(!user) return;
+    ready = true;
+    onSnapshot(ref,
+      (snap) => { if(window.__otteriApplyRemote) window.__otteriApplyRemote(snap.exists() ? snap.data() : null); },
+      (err)  => { console.warn("[cloud] snapshot error", err); }
+    );
+    if(pending) flush();
+  });
 </script>
 </body>
 </html>
